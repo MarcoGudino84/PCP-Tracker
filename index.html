@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCP Tracker — C1 Supervisores</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0f1e;--surface:#111827;--surface2:#1a2235;--border:#1f2d45;--accent:#3b82f6;--accent2:#06d6a0;--accent3:#f59e0b;--text:#e8edf5;--text2:#8899b4;--text3:#4a5f7a;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.logo-text{font-size:1rem;font-weight:700;}
+.logo-sub{font-size:0.7rem;color:var(--text2);}
+.date-badge{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:0.78rem;color:var(--text2);font-family:'DM Mono',monospace;}
+.tabs{display:flex;gap:4px;padding:1rem 2rem 0;border-bottom:1px solid var(--border);background:var(--surface);overflow-x:auto;}
+.tab{padding:10px 20px;border-radius:8px 8px 0 0;cursor:pointer;font-size:0.85rem;font-weight:500;color:var(--text2);border:1px solid transparent;border-bottom:none;transition:all 0.2s;white-space:nowrap;}
+.tab:hover{color:var(--text);background:var(--surface2);}
+.tab.active{color:var(--accent);background:var(--bg);border-color:var(--border);border-bottom-color:var(--bg);}
+.main{padding:2rem;max-width:1400px;margin:0 auto;}
+.page{display:none;}
+.page.active{display:block;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem;margin-bottom:2rem;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem 1.5rem;position:relative;overflow:hidden;}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.kpi-card.blue::before{background:var(--accent);}
+.kpi-card.green::before{background:var(--accent2);}
+.kpi-card.yellow::before{background:var(--accent3);}
+.kpi-card.red::before{background:var(--red);}
+.kpi-card.purple::before{background:#8b5cf6;}
+.kpi-label{font-size:0.72rem;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
+.kpi-value{font-size:1.8rem;font-weight:700;letter-spacing:-0.03em;line-height:1;}
+.kpi-sub{font-size:0.75rem;color:var(--text2);margin-top:6px;}
+.kpi-trend{display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:600;margin-top:6px;}
+.kpi-trend.up{color:var(--green);}
+.kpi-trend.down{color:var(--red);}
+.chart-grid{display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:1rem;}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;}
+.chart-title{font-size:0.85rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.chart-wrap{position:relative;height:220px;}
+.chart-title select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:0.78rem;font-family:'DM Sans',sans-serif;cursor:pointer;}
+.rank-table-wrap{overflow-x:auto;}
+.rank-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+.rank-table th{background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;color:var(--text2);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.07em;white-space:nowrap;}
+.rank-table td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text);}
+.rank-table tr:hover td{background:rgba(59,130,246,0.04);}
+.rank-table tr:last-child td{border-bottom:none;}
+.trend-up{color:#10b981;font-weight:700;font-size:1rem;}
+.trend-dn{color:#ef4444;font-weight:700;font-size:1rem;}
+.trend-eq{color:var(--text2);font-weight:700;}
+.pct-bar-wrap{height:5px;background:var(--surface2);border-radius:3px;margin-top:4px;}
+.pct-bar{height:5px;border-radius:3px;}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;}
+.badge-green{background:rgba(16,185,129,0.15);color:#10b981;}
+.badge-yellow{background:rgba(245,158,11,0.15);color:#f59e0b;}
+.badge-red{background:rgba(239,68,68,0.15);color:#ef4444;}
+.heatmap-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1rem;}
+.hm-table{border-collapse:separate;border-spacing:0;font-size:0.75rem;min-width:100%;}
+.hm-table th{background:var(--surface2);padding:7px 6px;text-align:center;font-weight:600;color:var(--text2);font-size:0.62rem;text-transform:uppercase;border-right:1px solid var(--border);border-bottom:1px solid var(--border);white-space:nowrap;}
+.hm-table th.sup-th{text-align:left;min-width:170px;padding:7px 12px;position:sticky;left:0;z-index:3;background:var(--surface2);border-right:2px solid var(--accent);}
+.hm-table td{padding:4px 5px;text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);min-width:52px;}
+.hm-table td.sup-name{text-align:left;padding:5px 12px;font-size:0.75rem;font-weight:500;white-space:nowrap;background:var(--surface2);position:sticky;left:0;z-index:2;border-right:2px solid var(--accent);}
+.hm-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:34px;}
+.hm-pct{font-family:'DM Mono',monospace;font-size:0.68rem;font-weight:600;}
+.hm-arrow{font-size:0.68rem;line-height:1;}
+.cell-green{background:rgba(16,185,129,0.18);}
+.cell-yellow{background:rgba(245,158,11,0.18);}
+.cell-red{background:rgba(239,68,68,0.15);}
+.cell-empty{color:var(--text3);font-size:0.65rem;}
+.arrow-up{color:#10b981;}
+.arrow-dn{color:#ef4444;}
+.arrow-eq{color:var(--text2);}
+.form-container{max-width:560px;margin:0 auto;}
+.form-header{text-align:center;margin-bottom:2rem;}
+.form-header h2{font-size:1.5rem;font-weight:700;margin-bottom:6px;}
+.form-header p{color:var(--text2);font-size:0.9rem;}
+.form-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;}
+.form-group{margin-bottom:1.25rem;}
+.form-label{display:block;font-size:0.78rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:8px;}
+.form-control{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:12px 16px;border-radius:10px;font-size:0.95rem;font-family:'DM Sans',sans-serif;transition:border-color 0.2s;appearance:none;}
+.form-control:focus{outline:none;border-color:var(--accent);}
+.form-control::placeholder{color:var(--text3);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.pct-preview{text-align:center;padding:14px;background:rgba(6,214,160,0.07);border:1px solid rgba(6,214,160,0.3);border-radius:10px;margin-bottom:1.25rem;}
+.pct-preview-label{font-size:0.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;}
+.pct-preview-value{font-size:2.2rem;font-weight:700;color:var(--accent2);letter-spacing:-0.03em;}
+.btn-submit{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#6366f1);color:white;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;transition:opacity 0.2s,transform 0.1s;margin-top:0.5rem;}
+.btn-submit:hover{opacity:0.9;transform:translateY(-1px);}
+.gen-filters{display:flex;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center;}
+.gen-filters select{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;font-size:0.85rem;font-family:'DM Sans',sans-serif;appearance:none;}
+.heatmap-controls{display:flex;align-items:center;gap:16px;margin-bottom:12px;flex-wrap:wrap;}
+.heatmap-controls select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:8px;font-size:0.85rem;font-family:'DM Sans',sans-serif;cursor:pointer;}
+.export-bar{display:flex;gap:12px;margin-bottom:1.5rem;align-items:center;flex-wrap:wrap;}
+.btn-export{display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;font-size:0.85rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;border:1px solid;transition:all 0.2s;}
+.btn-export-detail{background:rgba(16,185,129,0.1);border-color:var(--green);color:var(--green);}
+.btn-export-detail:hover{background:rgba(16,185,129,0.2);}
+.btn-export-summary{background:rgba(59,130,246,0.1);border-color:var(--accent);color:var(--accent);}
+.btn-export-summary:hover{background:rgba(59,130,246,0.2);}
+.export-label{font-size:0.8rem;color:var(--text2);}
+.admin-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;}
+.admin-title{font-size:1.1rem;font-weight:700;}
+.admin-subtitle{font-size:0.8rem;color:var(--text2);margin-top:2px;}
+.btn-lock{display:flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(239,68,68,0.1);border:1px solid var(--red);color:var(--red);border-radius:8px;font-size:0.8rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;}
+.admin-filters{display:grid;grid-template-columns:1fr 1fr auto;gap:1rem;margin-bottom:1.5rem;align-items:end;}
+.admin-filters select,.admin-filters input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:10px;font-size:0.88rem;font-family:'DM Sans',sans-serif;appearance:none;}
+.btn-delete-record{background:rgba(239,68,68,0.1);border:1px solid var(--red);color:var(--red);padding:6px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;white-space:nowrap;}
+.btn-delete-record:hover{background:rgba(239,68,68,0.25);}
+.admin-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;}
+.admin-stat{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;text-align:center;}
+.admin-stat-val{font-size:1.6rem;font-weight:700;}
+.admin-stat-lbl{font-size:0.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;}
+.data-table-wrap{overflow-x:auto;}
+.data-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+.data-table th{background:var(--surface2);padding:10px 16px;text-align:left;font-weight:600;color:var(--text2);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.07em;white-space:nowrap;}
+.data-table td{padding:10px 16px;border-bottom:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:0.8rem;}
+.data-table tr:hover td{background:rgba(59,130,246,0.04);}
+.no-data-row td{text-align:center;color:var(--text3);padding:2rem;font-family:'DM Sans',sans-serif;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s;}
+.modal-overlay.show{opacity:1;pointer-events:all;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;width:100%;max-width:420px;margin:1rem;transform:translateY(20px);transition:transform 0.25s;}
+.modal-overlay.show .modal{transform:translateY(0);}
+.modal-icon{font-size:2.5rem;text-align:center;margin-bottom:1rem;}
+.modal-title{font-size:1.1rem;font-weight:700;text-align:center;margin-bottom:8px;}
+.modal-body{font-size:0.88rem;color:var(--text2);text-align:center;margin-bottom:1.5rem;line-height:1.6;}
+.modal-existing{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:1.5rem;font-size:0.82rem;color:var(--text2);}
+.modal-existing strong{color:var(--text);display:block;margin-bottom:4px;font-size:0.9rem;}
+.modal-btns{display:flex;gap:10px;}
+.btn-modal-cancel{flex:1;padding:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:0.88rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;}
+.btn-modal-replace{flex:1;padding:12px;background:linear-gradient(135deg,#f59e0b,#ef4444);border:none;color:white;border-radius:10px;font-size:0.88rem;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;}
+.pin-dots{display:flex;gap:12px;justify-content:center;margin:1.5rem 0;}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all 0.2s;}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);}
+.pin-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;}
+.pin-key{padding:14px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:1.1rem;font-weight:600;font-family:'DM Mono',monospace;cursor:pointer;transition:all 0.15s;text-align:center;}
+.pin-key:hover{background:var(--border);}
+.pin-key.delete{color:var(--red);}
+.pin-error{text-align:center;color:var(--red);font-size:0.82rem;font-weight:600;min-height:20px;margin-bottom:8px;}
+.loading{text-align:center;padding:3rem;color:var(--text2);font-size:0.9rem;}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.metas-table{border-collapse:separate;border-spacing:0;font-size:0.73rem;min-width:100%;}
+.metas-table th{background:var(--surface2);padding:6px 7px;text-align:center;font-weight:600;color:var(--text2);font-size:0.62rem;text-transform:uppercase;border-right:1px solid var(--border);border-bottom:1px solid var(--border);white-space:nowrap;}
+.metas-table th.sup-th{text-align:left;min-width:170px;padding:6px 12px;position:sticky;left:0;z-index:3;background:var(--surface2);border-right:2px solid var(--accent);}
+.metas-table td{padding:4px 5px;text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);min-width:64px;}
+.metas-table td.sup-name{text-align:left;padding:5px 12px;font-size:0.75rem;font-weight:500;white-space:nowrap;background:var(--surface2);position:sticky;left:0;z-index:2;border-right:2px solid var(--accent);}
+.meta-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:40px;padding:3px 2px;}
+.meta-real{font-family:'DM Mono',monospace;font-size:0.68rem;font-weight:700;}
+.meta-target{font-size:0.6rem;color:var(--text3);margin-top:1px;}
+.meta-hit{background:rgba(16,185,129,0.18);}
+.meta-miss{background:rgba(239,68,68,0.15);}
+.meta-pending{background:rgba(59,130,246,0.08);}
+.meta-nodata{}
+
+.success-toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(100px);background:var(--green);color:white;padding:14px 28px;border-radius:12px;font-weight:600;font-size:0.9rem;transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);z-index:999;box-shadow:0 8px 32px rgba(16,185,129,0.4);}
+.success-toast.show{transform:translateX(-50%) translateY(0);}
+@media(max-width:768px){.chart-grid{grid-template-columns:1fr;}.main{padding:1rem;}.kpi-grid{grid-template-columns:1fr 1fr;}.form-row{grid-template-columns:1fr;}.admin-filters{grid-template-columns:1fr;}.admin-stats{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">📊</div>
+    <div><div class="logo-text">PCP Tracker</div><div class="logo-sub">Farmacias de Similares — C1</div></div>
+  </div>
+  <div class="date-badge" id="headerDate">—</div>
+</header>
+<nav class="tabs">
+  <div class="tab active" onclick="showPage('dashboard',this)">📈 Dashboard</div>
+  <div class="tab" onclick="showPage('captura',this)">✏️ Captura</div>
+  <div class="tab" onclick="showPage('general',this)">📊 General</div>
+  <div class="tab" onclick="showPage('heatmap',this)">🌡️ Mapa de Calor</div>
+  <div class="tab" onclick="showPage('datos',this)">🗃️ Datos</div>
+  <div class="tab" onclick="showPage('metas',this)">🎯 Metas</div>
+  <div class="tab" onclick="requestAdmin(this)" id="tab-admin">🔧 Admin</div>
+</nav>
+<main class="main">
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="kpi-grid" id="kpiGrid"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">
+        <span>📈 Tendencia % PCP General</span>
+        <select id="rangeSelect" onchange="renderTrendChart()">
+          <option value="7">Últimos 7 días</option>
+          <option value="14">Últimos 14 días</option>
+          <option value="30">Últimos 30 días</option>
+          <option value="999">Todo</option>
+        </select>
+      </div>
+      <div class="chart-wrap"><canvas id="chartGeneral"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><span>🏆 Ranking Hoy</span></div>
+      <div class="chart-wrap"><canvas id="chartRanking"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-card" style="margin-top:1rem">
+    <div class="chart-title"><span>📋 Ranking Completo — Mayor a Menor % PCP Hoy</span></div>
+    <div class="rank-table-wrap">
+      <table class="rank-table">
+        <thead><tr>
+          <th style="width:40px">#</th>
+          <th>Supervisor</th>
+          <th>Venta Total</th>
+          <th>Venta PCP</th>
+          <th style="width:130px">% PCP</th>
+          <th style="width:60px;text-align:center">Tend.</th>
+        </tr></thead>
+        <tbody id="rankingBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- CAPTURA -->
+<div class="page" id="page-captura">
+  <div class="form-container">
+    <div class="form-header"><h2>Captura Diaria</h2><p>Ingresa los resultados del día</p></div>
+    <div class="form-card">
+      <div class="form-group">
+        <label class="form-label">Supervisor</label>
+        <select class="form-control" id="fSupervisor">
+          <option value="">— Selecciona tu nombre —</option>
+          <option value="C1-01|SAMANO BORRAZ JORGE">C1-01 · SAMANO BORRAZ JORGE</option>
+          <option value="C1-02|FERNANDEZ RIVERA ROGELIO ALAN">C1-02 · FERNANDEZ RIVERA ROGELIO ALAN</option>
+          <option value="C1-03|PADILLA GARCIA NANCY CLAUDIA">C1-03 · PADILLA GARCIA NANCY CLAUDIA</option>
+          <option value="C1-04|VARGAS ORTIZ ETHNA CAROLINA">C1-04 · VARGAS ORTIZ ETHNA CAROLINA</option>
+          <option value="C1-05|PINEDA SANCHEZ JOSE ALEXANDER">C1-05 · PINEDA SANCHEZ JOSE ALEXANDER</option>
+          <option value="C1-06|ANGUIANO BUENDIA ALEJANDRO RODRIGO">C1-06 · ANGUIANO BUENDIA ALEJANDRO RODRIGO</option>
+          <option value="C1-07|ANGUIANO ESCALANTE JOSUE ISMAEL">C1-07 · ANGUIANO ESCALANTE JOSUE ISMAEL</option>
+          <option value="C1-08|SANCHEZ NUÑO FRANCISCO JAVIER">C1-08 · SANCHEZ NUÑO FRANCISCO JAVIER</option>
+          <option value="C1-09|MONDRAGON CRUZ JAVIER">C1-09 · MONDRAGON CRUZ JAVIER</option>
+          <option value="C1-10|CRUZ RANGEL CRISTIAN JOSE">C1-10 · CRUZ RANGEL CRISTIAN JOSE</option>
+          <option value="C1-11|GUDIÑO CHAVIRA MARCO ANTONIO">C1-11 · GUDIÑO CHAVIRA MARCO ANTONIO</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha</label>
+        <input type="date" class="form-control" id="fFecha">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Venta Total del Día ($)</label>
+          <input type="number" class="form-control" id="fVentaTotal" placeholder="Ej: 55000" min="0" step="100" oninput="calcPct()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Venta PCP del Día ($)</label>
+          <input type="number" class="form-control" id="fVentaPcp" placeholder="Ej: 21000" min="0" step="100" oninput="calcPct()">
+        </div>
+      </div>
+      <div class="pct-preview">
+        <div class="pct-preview-label">% PCP — Calculado Automáticamente</div>
+        <div class="pct-preview-value" id="pctPreview">—</div>
+      </div>
+      <button class="btn-submit" onclick="guardarRegistro()">✅ Guardar Registro</button>
+    </div>
+  </div>
+</div>
+
+<!-- GENERAL -->
+<div class="page" id="page-general">
+  <div class="gen-filters">
+    <select id="genMonthFilter" onchange="renderGeneral()"></select>
+  </div>
+  <div class="kpi-grid" id="genKpiGrid"></div>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title"><span>📈 Tendencia % PCP del Equipo</span></div>
+      <div class="chart-wrap"><canvas id="chartGenTeam"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><span>📊 Venta Total vs PCP por Supervisor</span></div>
+      <div class="chart-wrap"><canvas id="chartGenBars"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- HEATMAP -->
+<div class="page" id="page-heatmap">
+  <div class="heatmap-card">
+    <div class="heatmap-controls">
+      <span style="font-size:0.85rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em">🌡️ Mapa de Calor</span>
+      <select id="hmMonthSelect" onchange="renderHeatmap()"></select>
+    </div>
+    <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap;font-size:0.75rem;color:var(--text2);">
+      <span>🟢 Alto ≥36%</span><span>🟡 Medio 30–35.99%</span><span>🔴 Bajo &lt;30%</span>
+      <span style="margin-left:4px">▲ sube vs día ant. &nbsp;▼ baja &nbsp;= igual</span>
+    </div>
+    <div id="heatmapWrap" style="overflow-x:auto"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
+  </div>
+</div>
+
+<!-- DATOS -->
+<div class="page" id="page-datos">
+  <div class="export-bar">
+    <span class="export-label">⬇️ Descargar:</span>
+    <button class="btn-export btn-export-detail" onclick="exportExcelDetalle()">📋 Excel Detalle</button>
+    <button class="btn-export btn-export-summary" onclick="exportExcelResumen()">📊 Excel Resumen</button>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Concentrado General</div>
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Código</th><th>Supervisor</th><th>Fecha</th><th>Venta Total</th><th>Venta PCP</th><th>% PCP</th><th>Nivel</th></tr></thead>
+        <tbody id="allDataBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="page" id="page-admin">
+  <div class="admin-header">
+    <div><div class="admin-title">🔧 Panel de Administración</div><div class="admin-subtitle">Elimina registros duplicados o incorrectos</div></div>
+    <button class="btn-lock" onclick="lockAdmin()">🔒 Cerrar sesión admin</button>
+  </div>
+  <div class="admin-stats" id="adminStats"></div>
+  <div class="chart-card">
+    <div class="chart-title" style="margin-bottom:1.25rem"><span>📋 Registros — Filtrar y Eliminar</span></div>
+    <div class="admin-filters">
+      <select id="adminSupFilter" onchange="renderAdminTable()">
+        <option value="">Todos los supervisores</option>
+        <option value="C1-01">C1-01 · SAMANO BORRAZ JORGE</option>
+        <option value="C1-02">C1-02 · FERNANDEZ RIVERA ROGELIO ALAN</option>
+        <option value="C1-03">C1-03 · PADILLA GARCIA NANCY CLAUDIA</option>
+        <option value="C1-04">C1-04 · VARGAS ORTIZ ETHNA CAROLINA</option>
+        <option value="C1-05">C1-05 · PINEDA SANCHEZ JOSE ALEXANDER</option>
+        <option value="C1-06">C1-06 · ANGUIANO BUENDIA ALEJANDRO RODRIGO</option>
+        <option value="C1-07">C1-07 · ANGUIANO ESCALANTE JOSUE ISMAEL</option>
+        <option value="C1-08">C1-08 · SANCHEZ NUÑO FRANCISCO JAVIER</option>
+        <option value="C1-09">C1-09 · MONDRAGON CRUZ JAVIER</option>
+        <option value="C1-10">C1-10 · CRUZ RANGEL CRISTIAN JOSE</option>
+        <option value="C1-11">C1-11 · GUDIÑO CHAVIRA MARCO ANTONIO</option>
+      </select>
+      <input type="month" id="adminMonthFilter" onchange="renderAdminTable()">
+      <div style="font-size:0.75rem;color:var(--text2);white-space:nowrap">Total: <strong id="adminCount" style="color:var(--text)">0</strong></div>
+    </div>
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Código</th><th>Supervisor</th><th>Fecha</th><th>Venta Total</th><th>Venta PCP</th><th>% PCP</th><th>Nivel</th><th style="text-align:center">Eliminar</th></tr></thead>
+        <tbody id="adminTableBody"></tbody>
+      </table>
+    </div>
+  
+    <div class="chart-card" style="margin-top:1rem">
+      <div class="chart-title" style="margin-bottom:1.25rem"><span>🎯 Cargar Metas desde Excel</span></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1rem;">
+        <div style="font-size:0.82rem;color:var(--text2);margin-bottom:1rem;line-height:1.7">
+          El Excel debe tener esta estructura:<br>
+          <strong style="color:var(--text)">Columna A:</strong> Código (C1-01, C1-02...)<br>
+          <strong style="color:var(--text)">Columna B:</strong> Nombre Supervisor<br>
+          <strong style="color:var(--text)">Columnas C en adelante:</strong> Fechas como encabezado (formato YYYY-MM-DD) y la meta en % como número (ej: 36.5)
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+          <button class="btn-export btn-export-summary" onclick="descargarPlantilla()" style="margin:0">📥 Descargar Plantilla Excel</button>
+          <span style="font-size:0.78rem;color:var(--text2)">← Descarga, rellena y sube</span>
+        </div>
+        <div style="border:2px dashed var(--border);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;transition:border-color 0.2s;" id="dropZone" onclick="document.getElementById('metasFileInput').click()" ondragover="event.preventDefault();this.style.borderColor='var(--accent)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleMetasDrop(event)">
+          <div style="font-size:2rem;margin-bottom:8px">📂</div>
+          <div style="font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:4px">Haz clic o arrastra tu Excel de Metas aquí</div>
+          <div style="font-size:0.75rem;color:var(--text2)">.xlsx únicamente</div>
+          <input type="file" id="metasFileInput" accept=".xlsx" style="display:none" onchange="procesarMetasExcel(this.files[0])">
+        </div>
+        <div id="metasUploadStatus" style="margin-top:1rem;font-size:0.85rem;color:var(--text2);min-height:20px;text-align:center"></div>
+      </div>
+    </div>
+</div>
+</div>
+
+<!-- METAS -->
+<div class="page" id="page-metas">
+  <div class="chart-card" style="margin-bottom:1rem">
+    <div class="chart-title" style="margin-bottom:1rem"><span>🎯 Cumplimiento de Metas por Día</span></div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem;">
+      <select id="metasMonthSelect" onchange="renderMetas()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:8px;font-size:0.85rem;font-family:'DM Sans',sans-serif;cursor:pointer;"></select>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:0.75rem;color:var(--text2);">
+        <span>🟢 Cumplió meta</span>
+        <span>🔴 No cumplió</span>
+        <span style="background:var(--surface2);padding:2px 8px;border-radius:4px;">⬜ Sin captura</span>
+        <span style="color:var(--text3)">— Sin meta</span>
+      </div>
+    </div>
+    <div class="kpi-grid" id="metasKpiGrid" style="margin-bottom:1.5rem"></div>
+    <div style="overflow-x:auto" id="metasTableWrap">
+      <div class="loading"><div class="spinner"></div>Cargando metas...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN METAS UPLOAD (inside admin page, injected below) -->
+</main>
+
+<!-- MODAL DUPLICADO -->
+<div class="modal-overlay" id="modalDuplicate">
+  <div class="modal">
+    <div class="modal-icon">⚠️</div>
+    <div class="modal-title">Registro ya existe</div>
+    <div class="modal-body">Este supervisor ya capturó datos para esta fecha:</div>
+    <div class="modal-existing" id="modalExistingData"></div>
+    <div class="modal-body">¿Deseas <strong style="color:var(--yellow)">reemplazar</strong> el registro anterior?</div>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" onclick="closeModal('modalDuplicate')">✖ Cancelar</button>
+      <button class="btn-modal-replace" onclick="confirmReplace()">🔄 Sí, reemplazar</button>
+    </div>
+  </div>
+</div>
+<!-- MODAL ELIMINAR -->
+<div class="modal-overlay" id="modalDelete">
+  <div class="modal">
+    <div class="modal-icon">🗑️</div>
+    <div class="modal-title">Eliminar registro</div>
+    <div class="modal-body">¿Estás seguro?</div>
+    <div class="modal-existing" id="modalDeleteData"></div>
+    <div class="modal-body" style="color:var(--red);font-weight:600">Esta acción no se puede deshacer.</div>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" onclick="closeModal('modalDelete')">✖ Cancelar</button>
+      <button class="btn-modal-replace" onclick="confirmDelete()">🗑️ Sí, eliminar</button>
+    </div>
+  </div>
+</div>
+<!-- MODAL PIN -->
+<div class="modal-overlay" id="modalPin">
+  <div class="modal">
+    <div class="modal-icon">🔐</div>
+    <div class="modal-title">Acceso Administrador</div>
+    <div class="modal-body">Ingresa el PIN de 4 dígitos.</div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="dot0"></div><div class="pin-dot" id="dot1"></div>
+      <div class="pin-dot" id="dot2"></div><div class="pin-dot" id="dot3"></div>
+    </div>
+    <div class="pin-error" id="pinError"></div>
+    <div class="pin-keypad">
+      <div class="pin-key" onclick="pinKey('1')">1</div>
+      <div class="pin-key" onclick="pinKey('2')">2</div>
+      <div class="pin-key" onclick="pinKey('3')">3</div>
+      <div class="pin-key" onclick="pinKey('4')">4</div>
+      <div class="pin-key" onclick="pinKey('5')">5</div>
+      <div class="pin-key" onclick="pinKey('6')">6</div>
+      <div class="pin-key" onclick="pinKey('7')">7</div>
+      <div class="pin-key" onclick="pinKey('8')">8</div>
+      <div class="pin-key" onclick="pinKey('9')">9</div>
+      <div class="pin-key" onclick="pinKey('cancel')" style="font-size:0.75rem;color:var(--text2)">Cancelar</div>
+      <div class="pin-key" onclick="pinKey('0')">0</div>
+      <div class="pin-key delete" onclick="pinKey('del')">⌫</div>
+    </div>
+  </div>
+</div>
+<div class="success-toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://ogavsqbvfcmwhyxuhzsh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9nYXZzcWJ2ZmNtd2h5eHVoenNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTk2NTQsImV4cCI6MjA5MTI3NTY1NH0.gfbw27VLT4vmuFiE2DDKSezF_RjtmkUqZ9VTq7Ys6bA';
+const ADMIN_PIN = '1107';
+const SUPERVISORS = [
+  {code:'C1-01',name:'SAMANO BORRAZ JORGE'},
+  {code:'C1-02',name:'FERNANDEZ RIVERA ROGELIO ALAN'},
+  {code:'C1-03',name:'PADILLA GARCIA NANCY CLAUDIA'},
+  {code:'C1-04',name:'VARGAS ORTIZ ETHNA CAROLINA'},
+  {code:'C1-05',name:'PINEDA SANCHEZ JOSE ALEXANDER'},
+  {code:'C1-06',name:'ANGUIANO BUENDIA ALEJANDRO RODRIGO'},
+  {code:'C1-07',name:'ANGUIANO ESCALANTE JOSUE ISMAEL'},
+  {code:'C1-08',name:'SANCHEZ NUÑO FRANCISCO JAVIER'},
+  {code:'C1-09',name:'MONDRAGON CRUZ JAVIER'},
+  {code:'C1-10',name:'CRUZ RANGEL CRISTIAN JOSE'},
+  {code:'C1-11',name:'GUDIÑO CHAVIRA MARCO ANTONIO'},
+];
+let allData=[],adminUnlocked=false,pinBuffer='',pendingReplace=null,pendingDelete=null;
+let chartGeneral=null,chartRanking=null,chartGenTeam=null,chartGenBars=null;
+const localDate=(d)=>{
+  const off=d.getTimezoneOffset();
+  const local=new Date(d.getTime()-off*60000);
+  return local.toISOString().split('T')[0];
+};
+const todayStr=()=>localDate(new Date());
+const yesterdayStr=()=>{const d=new Date();d.setDate(d.getDate()-1);return localDate(d);};
+const calcP=(vpcp,vt)=>vt>0?(vpcp/vt)*100:0;
+const fmtP=v=>v.toFixed(1)+'%';
+const fmtM=v=>'$'+Math.round(v).toLocaleString('es-MX');
+const bCls=p=>p>=36?'badge-green':p>=30?'badge-yellow':'badge-red';
+const lvl=p=>p>=36?'ALTO':p>=30?'MEDIO':'BAJO';
+const bColor=p=>p>=36?'#10b981':p>=30?'#f59e0b':'#ef4444';
+const getPct=r=>r.venta_total&&r.venta_total>0?calcP(r.venta_pcp,r.venta_total):(r.pct_pcp||0);
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const now=new Date();
+  document.getElementById('headerDate').textContent=now.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  document.getElementById('fFecha').value=todayStr();
+  populateMonthSelects();
+  loadData();
+});
+
+function populateMonthSelects(){
+  const now=new Date();
+  const opts=Array.from({length:12},(_,i)=>{
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const val=d.toISOString().slice(0,7);
+    const lbl=d.toLocaleDateString('es-MX',{month:'long',year:'numeric'});
+    return `<option value="${val}"${i===0?' selected':''}>${lbl.charAt(0).toUpperCase()+lbl.slice(1)}</option>`;
+  }).join('');
+  ['hmMonthSelect','genMonthFilter'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+  initMetasMonthSelect();
+  const am=document.getElementById('adminMonthFilter');
+  if(am)am.value=now.toISOString().slice(0,7);
+}
+
+async function supaFetch(endpoint,options={}){
+  const method=options.method||'GET';
+  const res=await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`,{
+    ...options,
+    headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json',
+      'Prefer':method==='POST'?'return=minimal':undefined,...(options.headers||{})}
+  });
+  if(!res.ok){const e=await res.text();throw new Error(e||`HTTP ${res.status}`);}
+  if(res.status===204)return null;
+  const txt=await res.text();
+  if(!txt||!txt.trim())return null;
+  try{return JSON.parse(txt);}catch{return null;}
+}
+
+async function loadData(){
+  try{const data=await supaFetch('pcp_registros?select=*&order=fecha.asc,created_at.asc');allData=data||[];}
+  catch(e){console.error(e);allData=[];}
+  renderDashboard();renderAllData();
+}
+
+function initMetasMonthSelect(){
+  const now=new Date();
+  const opts=Array.from({length:12},(_,i)=>{
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const val=d.toISOString().slice(0,7);
+    const lbl=d.toLocaleDateString('es-MX',{month:'long',year:'numeric'});
+    return `<option value="${val}"${i===0?' selected':''}>${lbl.charAt(0).toUpperCase()+lbl.slice(1)}</option>`;
+  }).join('');
+  const el=document.getElementById('metasMonthSelect');if(el)el.innerHTML=opts;
+}
+
+function showPage(id,tabEl){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(tabEl)tabEl.classList.add('active');
+  if(id==='dashboard')renderDashboard();
+  if(id==='heatmap')renderHeatmap();
+  if(id==='general')renderGeneral();
+  if(id==='datos')renderAllData();
+  if(id==='admin')renderAdminPage();
+  if(id==='metas')renderMetas();
+}
+
+function calcPct(){
+  const vt=parseFloat(document.getElementById('fVentaTotal').value)||0;
+  const vpcp=parseFloat(document.getElementById('fVentaPcp').value)||0;
+  const el=document.getElementById('pctPreview');
+  if(vt>0&&vpcp>=0){const p=calcP(vpcp,vt);el.textContent=fmtP(p);el.style.color=p>=36?'#10b981':p>=30?'#f59e0b':'#ef4444';}
+  else{el.textContent='—';el.style.color='';}
+}
+
+async function guardarRegistro(){
+  const supVal=document.getElementById('fSupervisor').value;
+  const fecha=document.getElementById('fFecha').value;
+  const vt=parseFloat(document.getElementById('fVentaTotal').value);
+  const vpcp=parseFloat(document.getElementById('fVentaPcp').value);
+  if(!supVal||!fecha||isNaN(vt)||isNaN(vpcp)){alert('Por favor completa todos los campos.');return;}
+  if(vt<=0){alert('La Venta Total debe ser mayor a cero.');return;}
+  if(vpcp>vt){alert('La Venta PCP no puede ser mayor a la Venta Total.');return;}
+  const [codigo,nombre]=supVal.split('|');
+  const pctVal=calcP(vpcp,vt);
+  const existing=allData.find(r=>r.codigo_supervisor===codigo&&r.fecha===fecha);
+  if(existing){
+    pendingReplace={existingId:existing.id,codigo,nombre,fecha,vt,vpcp,pctVal};
+    const ep=getPct(existing);
+    document.getElementById('modalExistingData').innerHTML=
+      `<strong>${codigo} — ${nombre}</strong>Fecha: ${fecha}<br>Venta Total: ${fmtM(existing.venta_total||0)} | Venta PCP: ${fmtM(existing.venta_pcp)} | % PCP: <b>${fmtP(ep)}</b>`;
+    openModal('modalDuplicate');return;
+  }
+  await doSave(codigo,nombre,fecha,vt,vpcp,pctVal);
+}
+
+async function doSave(codigo,nombre,fecha,vt,vpcp,pctVal){
+  try{
+    await supaFetch('pcp_registros',{method:'POST',body:JSON.stringify({
+      codigo_supervisor:codigo,nombre_supervisor:nombre,fecha,
+      venta_total:vt,venta_pcp:vpcp,pct_pcp:Math.round(pctVal*100)/100
+    })});
+    showToast('✅ Registro guardado correctamente');
+    document.getElementById('fSupervisor').value='';
+    document.getElementById('fVentaTotal').value='';
+    document.getElementById('fVentaPcp').value='';
+    document.getElementById('pctPreview').textContent='—';
+    await loadData();
+  }catch(e){alert('Error al guardar.\n'+e.message);}
+}
+
+async function confirmReplace(){
+  if(!pendingReplace)return;
+  closeModal('modalDuplicate');
+  const{existingId,codigo,nombre,fecha,vt,vpcp,pctVal}=pendingReplace;pendingReplace=null;
+  try{
+    await supaFetch(`pcp_registros?id=eq.${existingId}`,{method:'DELETE',headers:{'Prefer':''}});
+    await doSave(codigo,nombre,fecha,vt,vpcp,pctVal);
+    showToast('🔄 Registro reemplazado');
+  }catch(e){alert('Error al reemplazar.\n'+e.message);}
+}
+
+function renderDashboard(){renderKPIs();renderTrendChart();renderRankingChart();renderRankingTable();}
+
+function renderKPIs(){
+  const td=todayStr(),yd=yesterdayStr();
+  const allDates2=[...new Set(allData.map(r=>r.fecha))].sort();
+  const latestD=allDates2[allDates2.length-1]||td;
+  const displayD=allData.some(r=>r.fecha===td)?td:latestD;
+  const prevD2=new Date(displayD+'T12:00:00');prevD2.setDate(prevD2.getDate()-1);
+  const prevDate2=localDate(prevD2);
+  const tr=allData.filter(r=>r.fecha===displayD),yr=allData.filter(r=>r.fecha===prevDate2);
+  const avgT=tr.length?tr.reduce((s,r)=>s+getPct(r),0)/tr.length:null;
+  const avgY=yr.length?yr.reduce((s,r)=>s+getPct(r),0)/yr.length:null;
+  const diff=avgT!==null&&avgY!==null?avgT-avgY:null;
+  const totVT=tr.reduce((s,r)=>s+(r.venta_total||0),0);
+  const totVP=tr.reduce((s,r)=>s+r.venta_pcp,0);
+  const sorted=tr.slice().sort((a,b)=>getPct(b)-getPct(a));
+  const best=sorted[0]||null,worst=sorted[sorted.length-1]||null;
+  document.getElementById('kpiGrid').innerHTML=`
+    <div class="kpi-card blue"><div class="kpi-label">% PCP Promedio Hoy</div>
+      <div class="kpi-value">${avgT!==null?fmtP(avgT):'—'}</div>
+      ${diff!==null?`<div class="kpi-trend ${diff>=0?'up':'down'}">${diff>=0?'▲':'▼'} ${Math.abs(diff).toFixed(1)}% vs ayer</div>`:'<div class="kpi-sub">Sin datos de ayer</div>'}
+    </div>
+    <div class="kpi-card green"><div class="kpi-label">Venta Total Hoy</div>
+      <div class="kpi-value" style="font-size:1.4rem">${totVT>0?fmtM(totVT):'—'}</div>
+      <div class="kpi-sub">${tr.length} supervisores capturados</div>
+    </div>
+    <div class="kpi-card purple"><div class="kpi-label">Venta PCP Hoy</div>
+      <div class="kpi-value" style="font-size:1.4rem">${totVP>0?fmtM(totVP):'—'}</div>
+      <div class="kpi-sub">${totVT>0?fmtP(calcP(totVP,totVT))+' del equipo':''}</div>
+    </div>
+    <div class="kpi-card yellow"><div class="kpi-label">🏆 Mejor Hoy</div>
+      <div class="kpi-value" style="font-size:1.2rem">${best?fmtP(getPct(best)):'—'}</div>
+      <div class="kpi-sub">${best?best.codigo_supervisor+' · '+best.nombre_supervisor.split(' ')[0]:'Sin datos'}</div>
+    </div>
+    <div class="kpi-card red"><div class="kpi-label">⚠️ Más Bajo Hoy</div>
+      <div class="kpi-value" style="font-size:1.2rem">${worst&&worst!==best?fmtP(getPct(worst)):'—'}</div>
+      <div class="kpi-sub">${worst&&worst!==best?worst.codigo_supervisor+' · '+worst.nombre_supervisor.split(' ')[0]:'Sin datos'}</div>
+    </div>`;
+}
+
+function renderTrendChart(){
+  const days=parseInt(document.getElementById('rangeSelect').value);
+  const cutoff=new Date();cutoff.setDate(cutoff.getDate()-(days<999?days:99999));
+  const recent=allData.filter(r=>new Date(r.fecha)>=cutoff);
+  const byDate={};
+  recent.forEach(r=>{if(!byDate[r.fecha])byDate[r.fecha]=[];byDate[r.fecha].push(getPct(r));});
+  const dates=Object.keys(byDate).sort();
+  const avgs=dates.map(d=>byDate[d].reduce((a,b)=>a+b,0)/byDate[d].length);
+  if(chartGeneral)chartGeneral.destroy();
+  chartGeneral=new Chart(document.getElementById('chartGeneral').getContext('2d'),{
+    type:'line',data:{labels:dates.map(d=>{const p=d.split('-');return`${p[2]}/${p[1]}`;}),
+      datasets:[{data:avgs,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,
+        tension:0.4,pointBackgroundColor:'#3b82f6',pointRadius:5,borderWidth:2.5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#8899b4',font:{size:10}},grid:{color:'#1f2d45'}},
+        y:{ticks:{color:'#8899b4',font:{size:10},callback:v=>v.toFixed(1)+'%'},grid:{color:'#1f2d45'},min:0,max:100}}}
+  });
+}
+
+function renderRankingChart(){
+  const td=todayStr();
+  const allD=[...new Set(allData.map(r=>r.fecha))].sort();
+  const latestD2=allD[allD.length-1]||td;
+  const dispD=allData.some(r=>r.fecha===td)?td:latestD2;
+  const recs=allData.filter(r=>r.fecha===dispD).map(r=>({...r,p:getPct(r)})).sort((a,b)=>b.p-a.p);
+  if(chartRanking)chartRanking.destroy();
+  chartRanking=new Chart(document.getElementById('chartRanking').getContext('2d'),{
+    type:'bar',
+    data:{labels:recs.map(r=>r.codigo_supervisor),
+      datasets:[{data:recs.map(r=>r.p),backgroundColor:recs.map(r=>bColor(r.p)),borderRadius:6,borderWidth:0}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#8899b4',font:{size:10},callback:v=>v+'%'},grid:{color:'#1f2d45'},min:0,max:100},
+        y:{ticks:{color:'#8899b4',font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function renderRankingTable(){
+  const td=todayStr();
+
+  // Use today if data exists, otherwise use the most recent date available
+  const allDates=[...new Set(allData.map(r=>r.fecha))].sort();
+  const latestDate=allDates[allDates.length-1]||td;
+  const displayDate=allData.some(r=>r.fecha===td)?td:latestDate;
+
+  // Previous day relative to displayDate
+  const prevD=new Date(displayDate+'T12:00:00');
+  prevD.setDate(prevD.getDate()-1);
+  const prevDate=localDate(prevD);
+
+  const tr=allData.filter(r=>r.fecha===displayDate);
+  const yr=allData.filter(r=>r.fecha===prevDate);
+
+  // Label showing which date is being shown
+  const isToday=displayDate===td;
+  const dateLabel=isToday?'Hoy':'Último día: '+displayDate.split('-').reverse().slice(0,2).join('/');
+
+  const rows=SUPERVISORS.map(sup=>{
+    const rec=tr.find(r=>r.codigo_supervisor===sup.code);
+    const recY=yr.find(r=>r.codigo_supervisor===sup.code);
+    return{sup,rec,p:rec?getPct(rec):null,pY:recY?getPct(recY):null};
+  }).sort((a,b)=>{
+    if(a.p===null&&b.p===null)return 0;
+    if(a.p===null)return 1;if(b.p===null)return -1;
+    return b.p-a.p;
+  });
+  const medals=['🥇','🥈','🥉'];
+  const maxP=rows.find(r=>r.p!==null)?.p||100;
+
+  // Update chart title to show the date
+  const titleEl=document.querySelector('#page-dashboard .chart-card:last-child .chart-title span');
+  if(titleEl)titleEl.textContent=`📋 Ranking Completo — ${dateLabel}`;
+
+  document.getElementById('rankingBody').innerHTML=rows.map((row,i)=>{
+    const{sup,rec,p,pY}=row;
+    let tHtml='<span style="color:var(--text3)">—</span>';
+    if(p!==null&&pY!==null){
+      if(p>pY+0.05)tHtml='<span class="trend-up">▲</span>';
+      else if(p<pY-0.05)tHtml='<span class="trend-dn">▼</span>';
+      else tHtml='<span class="trend-eq">=</span>';
+    }
+    const pos=i<3&&p!==null?medals[i]:`<span style="color:var(--text2);font-size:0.8rem">${p!==null?i+1:'—'}</span>`;
+    const bw=p!==null?Math.round((p/maxP)*100):0;
+    return`<tr>
+      <td style="text-align:center">${pos}</td>
+      <td><div style="font-weight:600;font-size:0.85rem">${sup.name.split(' ').slice(0,2).join(' ')}</div><div style="font-size:0.72rem;color:var(--text2)">${sup.code}</div></td>
+      <td style="font-family:'DM Mono',monospace">${rec?fmtM(rec.venta_total||0):'<span style="color:var(--text3)">Sin captura</span>'}</td>
+      <td style="font-family:'DM Mono',monospace">${rec?fmtM(rec.venta_pcp):'—'}</td>
+      <td>${p!==null?`<span class="badge ${bCls(p)}">${fmtP(p)}</span><div class="pct-bar-wrap"><div class="pct-bar" style="width:${bw}%;background:${bColor(p)}"></div></div>`:'<span style="color:var(--text3);font-size:0.75rem">Sin datos</span>'}</td>
+      <td style="text-align:center">${tHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderGeneral(){
+  const month=document.getElementById('genMonthFilter').value||new Date().toISOString().slice(0,7);
+  const recs=allData.filter(r=>r.fecha.startsWith(month));
+  const totVT=recs.reduce((s,r)=>s+(r.venta_total||0),0);
+  const totVP=recs.reduce((s,r)=>s+r.venta_pcp,0);
+  const pctEq=calcP(totVP,totVT);
+  const dias=new Set(recs.map(r=>r.fecha)).size;
+  document.getElementById('genKpiGrid').innerHTML=`
+    <div class="kpi-card green"><div class="kpi-label">Venta Total del Mes</div><div class="kpi-value" style="font-size:1.4rem">${fmtM(totVT)}</div><div class="kpi-sub">${dias} días capturados</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Venta PCP del Mes</div><div class="kpi-value" style="font-size:1.4rem">${fmtM(totVP)}</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">% PCP del Equipo</div><div class="kpi-value">${totVT>0?fmtP(pctEq):'—'}</div><div class="kpi-sub">Venta PCP ÷ Venta Total</div></div>`;
+  const byDate={};
+  recs.forEach(r=>{if(!byDate[r.fecha])byDate[r.fecha]={vt:0,vp:0};byDate[r.fecha].vt+=(r.venta_total||0);byDate[r.fecha].vp+=r.venta_pcp;});
+  const dates=Object.keys(byDate).sort();
+  const pcts=dates.map(d=>byDate[d].vt>0?calcP(byDate[d].vp,byDate[d].vt):0);
+  if(chartGenTeam)chartGenTeam.destroy();
+  chartGenTeam=new Chart(document.getElementById('chartGenTeam').getContext('2d'),{
+    type:'line',data:{labels:dates.map(d=>{const p=d.split('-');return`${p[2]}/${p[1]}`;}),
+      datasets:[{data:pcts,borderColor:'#06d6a0',backgroundColor:'rgba(6,214,160,0.1)',fill:true,tension:0.4,pointRadius:4,borderWidth:2.5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#8899b4',font:{size:10}},grid:{color:'#1f2d45'}},
+        y:{ticks:{color:'#8899b4',font:{size:10},callback:v=>v.toFixed(1)+'%'},grid:{color:'#1f2d45'},min:0,max:100}}}
+  });
+  const supData=SUPERVISORS.map(sup=>{
+    const sr=recs.filter(r=>r.codigo_supervisor===sup.code);
+    return{code:sup.code,vt:sr.reduce((s,r)=>s+(r.venta_total||0),0),vp:sr.reduce((s,r)=>s+r.venta_pcp,0)};
+  }).filter(s=>s.vt>0);
+  if(chartGenBars)chartGenBars.destroy();
+  chartGenBars=new Chart(document.getElementById('chartGenBars').getContext('2d'),{
+    type:'bar',data:{labels:supData.map(s=>s.code),
+      datasets:[
+        {label:'Venta Total',data:supData.map(s=>s.vt),backgroundColor:'rgba(59,130,246,0.5)',borderRadius:4},
+        {label:'Venta PCP',data:supData.map(s=>s.vp),backgroundColor:'rgba(16,185,129,0.7)',borderRadius:4}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#8899b4',font:{size:11}}}},
+      scales:{x:{ticks:{color:'#8899b4',font:{size:10}},grid:{display:false}},
+        y:{ticks:{color:'#8899b4',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k'},grid:{color:'#1f2d45'}}}}
+  });
+}
+
+function renderHeatmap(){
+  const month=document.getElementById('hmMonthSelect').value;
+  if(!month)return;
+  const[yr,mo]=month.split('-').map(Number);
+  const dim=new Date(yr,mo,0).getDate();
+  const days=Array.from({length:dim},(_,i)=>`${yr}-${String(mo).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`);
+  const recs=allData.filter(r=>r.fecha.startsWith(month));
+  const lkp={};recs.forEach(r=>{lkp[r.codigo_supervisor+'|'+r.fecha]=getPct(r);});
+  const thDays=days.map(d=>{
+    const dn=parseInt(d.split('-')[2]);
+    const dow=new Date(d+'T12:00:00').toLocaleDateString('es-MX',{weekday:'short'}).slice(0,2);
+    return`<th>${dn}<br><span style="font-weight:400;color:var(--text3);font-size:0.58rem">${dow}</span></th>`;
+  }).join('');
+  const tbody=SUPERVISORS.map(sup=>{
+    const cells=days.map((day,idx)=>{
+      const p=lkp[sup.code+'|'+day];
+      if(p===undefined)return`<td><span class="cell-empty">—</span></td>`;
+      let arrow='';
+      if(idx>0){const pp=lkp[sup.code+'|'+days[idx-1]];
+        if(pp!==undefined){
+          if(p>pp+0.05)arrow='<span class="arrow-up">▲</span>';
+          else if(p<pp-0.05)arrow='<span class="arrow-dn">▼</span>';
+          else arrow='<span class="arrow-eq">=</span>';
+        }
+      }
+      const cls=p>=36?'cell-green':p>=30?'cell-yellow':'cell-red';
+      const col=p>=36?'#10b981':p>=30?'#f59e0b':'#ef4444';
+      return`<td class="${cls}"><div class="hm-cell"><span class="hm-pct" style="color:${col}">${p.toFixed(1)}%</span><span class="hm-arrow">${arrow}</span></div></td>`;
+    }).join('');
+    const sn=sup.name.split(' ').slice(0,2).join(' ');
+    return`<tr><td class="sup-name">${sup.code}<br><span style="font-size:0.68rem;color:var(--text2)">${sn}</span></td>${cells}</tr>`;
+  }).join('');
+  document.getElementById('heatmapWrap').innerHTML=
+    `<table class="hm-table"><thead><tr><th class="sup-th">Supervisor</th>${thDays}</tr></thead><tbody>${tbody}</tbody></table>`;
+}
+
+function renderAllData(){
+  const tbody=document.getElementById('allDataBody');
+  if(!allData.length){tbody.innerHTML='<tr class="no-data-row"><td colspan="7">No hay registros aún.</td></tr>';return;}
+  tbody.innerHTML=allData.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(r=>{
+    const p=getPct(r);
+    return`<tr><td>${r.codigo_supervisor}</td><td style="font-family:'DM Sans',sans-serif;font-size:0.8rem">${r.nombre_supervisor}</td>
+    <td>${r.fecha}</td><td>${fmtM(r.venta_total||0)}</td><td>${fmtM(r.venta_pcp)}</td>
+    <td><b>${fmtP(p)}</b></td><td><span class="badge ${bCls(p)}">${lvl(p)}</span></td></tr>`;
+  }).join('');
+}
+
+function exportExcelDetalle(){
+  if(!allData.length){alert('No hay datos.');return;}
+  const wb=XLSX.utils.book_new();
+  const d1=[['REPORTE PCP — FARMACIAS DE SIMILARES C1'],[`Generado: ${new Date().toLocaleString('es-MX')}`],[],
+    ['Código','Nombre Supervisor','Fecha','Venta Total ($)','Venta PCP ($)','% PCP','Nivel']];
+  allData.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).forEach(r=>{
+    const p=getPct(r);d1.push([r.codigo_supervisor,r.nombre_supervisor,r.fecha,r.venta_total||0,r.venta_pcp,p/100,lvl(p)]);
+  });
+  const ws1=XLSX.utils.aoa_to_sheet(d1);
+  ws1['!cols']=[{wch:8},{wch:35},{wch:12},{wch:16},{wch:14},{wch:10},{wch:10}];
+  if(ws1['A1'])ws1['A1'].s={font:{bold:true,color:{rgb:'1E40AF'},sz:14}};
+  ['A4','B4','C4','D4','E4','F4','G4'].forEach(c=>{if(ws1[c])ws1[c].s={fill:{fgColor:{rgb:'0F2644'}},font:{bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center'}};});
+  for(let i=5;i<=d1.length;i++){
+    const fill={fgColor:{rgb:i%2===0?'F8FAFC':'FFFFFF'}};
+    ['A','B','C','D','E','F','G'].forEach(col=>{if(ws1[col+i])ws1[col+i].s={fill,alignment:{horizontal:'center'}};});
+    if(ws1['B'+i])ws1['B'+i].s={fill,alignment:{horizontal:'left'}};
+    if(ws1['F'+i])ws1['F'+i].z='0.0%';
+    if(ws1['D'+i])ws1['D'+i].z='"$"#,##0';
+    if(ws1['E'+i])ws1['E'+i].z='"$"#,##0';
+    const pv=d1[i-1]?.[5]*100;const gc='G'+i;
+    if(ws1[gc]&&pv!==undefined){
+      const fc=pv>=36?'065F46':pv>=30?'92400E':'991B1B';const bc=pv>=36?'D1FAE5':pv>=30?'FEF3C7':'FEE2E2';
+      ws1[gc].s={fill:{fgColor:{rgb:bc}},font:{bold:true,color:{rgb:fc}},alignment:{horizontal:'center'}};
+    }
+  }
+  XLSX.utils.book_append_sheet(wb,ws1,'📋 Detalle');
+  const d2=[['RESUMEN POR SUPERVISOR'],[`Generado: ${new Date().toLocaleString('es-MX')}`],[],
+    ['Código','Nombre','Registros','Venta Total','Venta PCP','% PCP Prom','Tendencia']];
+  SUPERVISORS.forEach(sup=>{
+    const recs=allData.filter(r=>r.codigo_supervisor===sup.code);if(!recs.length)return;
+    const vt=recs.reduce((s,r)=>s+(r.venta_total||0),0),vp=recs.reduce((s,r)=>s+r.venta_pcp,0);
+    const avg=recs.reduce((s,r)=>s+getPct(r),0)/recs.length;
+    const s2=recs.sort((a,b)=>a.fecha.localeCompare(b.fecha));const h=Math.floor(s2.length/2);
+    const f=s2.slice(0,h).reduce((s,r)=>s+getPct(r),0)/(h||1);
+    const l=s2.slice(h).reduce((s,r)=>s+getPct(r),0)/((s2.length-h)||1);
+    d2.push([sup.code,sup.name,recs.length,vt,vp,avg/100,l>f+0.5?'↑ CRECIENDO':l<f-0.5?'↓ CAYENDO':'→ ESTABLE']);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(d2);ws2['!cols']=[{wch:8},{wch:35},{wch:10},{wch:16},{wch:14},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws2,'📊 Resumen');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allData.map(r=>({
+    Código:r.codigo_supervisor,Supervisor:r.nombre_supervisor,Fecha:r.fecha,
+    Venta_Total:r.venta_total||0,Venta_PCP:r.venta_pcp,Pct_PCP:getPct(r)
+  }))),'🗃️ Datos');
+  XLSX.writeFile(wb,`Reporte_PCP_C1_${todayStr()}.xlsx`);showToast('📥 Excel descargado');
+}
+
+function exportExcelResumen(){
+  if(!allData.length){alert('No hay datos.');return;}
+  const wb=XLSX.utils.book_new();
+  const d=[['RESUMEN PCP — C1'],[`Generado: ${new Date().toLocaleString('es-MX')}`],[],
+    ['Código','Nombre','Registros','Venta Total','Venta PCP','% PCP Prom','Tendencia']];
+  SUPERVISORS.forEach(sup=>{
+    const recs=allData.filter(r=>r.codigo_supervisor===sup.code);
+    if(!recs.length){d.push([sup.code,sup.name,0,0,0,'Sin datos','—']);return;}
+    const vt=recs.reduce((s,r)=>s+(r.venta_total||0),0),vp=recs.reduce((s,r)=>s+r.venta_pcp,0);
+    const avg=recs.reduce((s,r)=>s+getPct(r),0)/recs.length;
+    const s2=recs.sort((a,b)=>a.fecha.localeCompare(b.fecha));const h=Math.floor(s2.length/2);
+    const f=s2.slice(0,h).reduce((s,r)=>s+getPct(r),0)/(h||1);
+    const l=s2.slice(h).reduce((s,r)=>s+getPct(r),0)/((s2.length-h)||1);
+    d.push([sup.code,sup.name,recs.length,vt,vp,avg/100,l>f+0.5?'↑ CRECIENDO':l<f-0.5?'↓ CAYENDO':'→ ESTABLE']);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(d);ws['!cols']=[{wch:8},{wch:35},{wch:10},{wch:16},{wch:14},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws,'Resumen PCP');
+  XLSX.writeFile(wb,`Resumen_PCP_C1_${todayStr()}.xlsx`);showToast('📥 Resumen descargado');
+}
+
+function requestAdmin(tabEl){
+  if(adminUnlocked){showPage('admin',tabEl);return;}
+  pinBuffer='';updatePinDots();document.getElementById('pinError').textContent='';
+  openModal('modalPin');document.getElementById('tab-admin')._tel=tabEl;
+}
+function pinKey(key){
+  if(key==='cancel'){closeModal('modalPin');return;}
+  if(key==='del'){pinBuffer=pinBuffer.slice(0,-1);updatePinDots();return;}
+  if(pinBuffer.length>=4)return;
+  pinBuffer+=key;updatePinDots();
+  if(pinBuffer.length===4){
+    setTimeout(()=>{
+      if(pinBuffer===ADMIN_PIN){
+        adminUnlocked=true;closeModal('modalPin');
+        const tel=document.getElementById('tab-admin')._tel;
+        showPage('admin',tel||document.getElementById('tab-admin'));
+        showToast('🔓 Sesión admin activa');
+      }else{document.getElementById('pinError').textContent='❌ PIN incorrecto.';pinBuffer='';updatePinDots();}
+    },150);
+  }
+}
+function updatePinDots(){for(let i=0;i<4;i++)document.getElementById('dot'+i).classList.toggle('filled',i<pinBuffer.length);}
+function lockAdmin(){
+  adminUnlocked=false;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-dashboard').classList.add('active');
+  document.querySelector('.tab').classList.add('active');
+  showToast('🔒 Sesión admin cerrada');
+}
+function renderAdminPage(){
+  const counts={};allData.forEach(r=>{const k=r.codigo_supervisor+'|'+r.fecha;counts[k]=(counts[k]||0)+1;});
+  const dupes=Object.values(counts).filter(v=>v>1).length;
+  document.getElementById('adminStats').innerHTML=`
+    <div class="admin-stat"><div class="admin-stat-val">${allData.length}</div><div class="admin-stat-lbl">Total Registros</div></div>
+    <div class="admin-stat"><div class="admin-stat-val" style="color:${dupes>0?'var(--yellow)':'var(--green)'}">${dupes}</div><div class="admin-stat-lbl">Posibles duplicados</div></div>
+    <div class="admin-stat"><div class="admin-stat-val">${new Set(allData.map(r=>r.codigo_supervisor)).size}</div><div class="admin-stat-lbl">Supervisores activos</div></div>`;
+  initMetasMonthSelect();
+  const am=document.getElementById('adminMonthFilter');if(!am.value)am.value=new Date().toISOString().slice(0,7);
+  renderAdminTable();
+}
+function renderAdminTable(){
+  const sc=document.getElementById('adminSupFilter').value,mo=document.getElementById('adminMonthFilter').value;
+  let fl=allData.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  if(sc)fl=fl.filter(r=>r.codigo_supervisor===sc);if(mo)fl=fl.filter(r=>r.fecha.startsWith(mo));
+  document.getElementById('adminCount').textContent=fl.length;
+  const kc={};fl.forEach(r=>{const k=r.codigo_supervisor+'|'+r.fecha;kc[k]=(kc[k]||0)+1;});
+  const dk=new Set(Object.entries(kc).filter(([,v])=>v>1).map(([k])=>k));
+  const tb=document.getElementById('adminTableBody');
+  if(!fl.length){tb.innerHTML='<tr class="no-data-row"><td colspan="8">Sin registros</td></tr>';return;}
+  tb.innerHTML=fl.map(r=>{
+    const p=getPct(r),isDupe=dk.has(r.codigo_supervisor+'|'+r.fecha);
+    const dt=isDupe?'<span style="font-size:0.65rem;background:rgba(245,158,11,0.2);color:#f59e0b;padding:2px 6px;border-radius:4px;font-weight:700;margin-left:4px">DUPLICADO</span>':'';
+    return`<tr style="${isDupe?'background:rgba(245,158,11,0.05);':''}">
+      <td>${r.codigo_supervisor}</td>
+      <td style="font-family:'DM Sans',sans-serif;font-size:0.78rem">${r.nombre_supervisor}${dt}</td>
+      <td>${r.fecha}</td>
+      <td style="font-family:'DM Mono',monospace">${fmtM(r.venta_total||0)}</td>
+      <td style="font-family:'DM Mono',monospace">${fmtM(r.venta_pcp)}</td>
+      <td><b>${fmtP(p)}</b></td>
+      <td><span class="badge ${bCls(p)}">${lvl(p)}</span></td>
+      <td style="text-align:center"><button class="btn-delete-record" onclick="askDelete(${r.id},'${r.codigo_supervisor}','${r.nombre_supervisor.replace(/'/g,"\\'")}','${r.fecha}',${r.venta_total||0},${r.venta_pcp})">🗑️ Eliminar</button></td>
+    </tr>`;
+  }).join('');
+}
+function askDelete(id,codigo,nombre,fecha,vt,vpcp){
+  pendingDelete={id};
+  document.getElementById('modalDeleteData').innerHTML=
+    `<strong>${codigo} — ${nombre}</strong>Fecha: ${fecha}<br>Venta Total: ${fmtM(vt)} | Venta PCP: ${fmtM(vpcp)} | % PCP: <b>${fmtP(calcP(vpcp,vt))}</b>`;
+  openModal('modalDelete');
+}
+async function confirmDelete(){
+  if(!pendingDelete)return;closeModal('modalDelete');
+  const{id}=pendingDelete;pendingDelete=null;
+  try{await supaFetch(`pcp_registros?id=eq.${id}`,{method:'DELETE',headers:{'Prefer':''}});
+    showToast('🗑️ Registro eliminado');await loadData();renderAdminPage();
+  }catch(e){alert('Error al eliminar.\n'+e.message);}
+}
+
+// ============================================================
+// METAS
+// ============================================================
+let metasData = []; // cached from supabase
+
+async function loadMetas(month) {
+  try {
+    const [my2,mm2]=month.split('-').map(Number);
+    const ld2=new Date(my2,mm2,0).getDate();
+    const lastD2=`${month}-${String(ld2).padStart(2,'0')}`;
+    const data = await supaFetch(`pcp_metas?select=*&fecha=gte.${month}-01&fecha=lte.${lastD2}`);
+    metasData = data || [];
+  } catch(e) { metasData = []; }
+}
+
+async function renderMetas() {
+  const month = document.getElementById('metasMonthSelect').value;
+  if (!month) return;
+  await loadMetas(month);
+  const [yr, mo] = month.split('-').map(Number);
+  const dim = new Date(yr, mo, 0).getDate();
+  const days = Array.from({length:dim}, (_,i) =>
+    `${yr}-${String(mo).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`
+  );
+
+  // Build lookups
+  const metaLkp = {}; // code|date -> meta_pct
+  metasData.forEach(m => { metaLkp[m.codigo_supervisor+'|'+m.fecha] = m.meta_pct; });
+  const realLkp = {}; // code|date -> real pct
+  allData.filter(r => r.fecha.startsWith(month))
+    .forEach(r => { realLkp[r.codigo_supervisor+'|'+r.fecha] = getPct(r); });
+
+  // KPIs
+  let totalDays=0, hitDays=0, bestSup=null, bestHit=0, worstSup=null, worstHit=101;
+  SUPERVISORS.forEach(sup => {
+    let sh=0, st=0;
+    days.forEach(day => {
+      const meta = metaLkp[sup.code+'|'+day];
+      const real = realLkp[sup.code+'|'+day];
+      if (meta !== undefined && real !== undefined) {
+        st++; totalDays++;
+        if (real >= meta) { sh++; hitDays++; }
+      }
+    });
+    if (st > 0) {
+      const rate = sh/st*100;
+      if (rate > bestHit)  { bestHit=rate;  bestSup=sup; }
+      if (rate < worstHit) { worstHit=rate; worstSup=sup; }
+    }
+  });
+  const teamRate = totalDays > 0 ? (hitDays/totalDays*100) : null;
+
+  document.getElementById('metasKpiGrid').innerHTML = `
+    <div class="kpi-card green"><div class="kpi-label">Cumplimiento Equipo</div>
+      <div class="kpi-value">${teamRate !== null ? teamRate.toFixed(1)+'%' : '—'}</div>
+      <div class="kpi-sub">${hitDays} de ${totalDays} días-supervisor</div>
+    </div>
+    <div class="kpi-card yellow"><div class="kpi-label">🏆 Mejor Cumplimiento</div>
+      <div class="kpi-value" style="font-size:1.1rem">${bestSup ? bestHit.toFixed(0)+'%' : '—'}</div>
+      <div class="kpi-sub">${bestSup ? bestSup.code+' · '+bestSup.name.split(' ')[0] : 'Sin datos'}</div>
+    </div>
+    <div class="kpi-card red"><div class="kpi-label">⚠️ Menor Cumplimiento</div>
+      <div class="kpi-value" style="font-size:1.1rem">${worstSup && worstSup!==bestSup ? worstHit.toFixed(0)+'%' : '—'}</div>
+      <div class="kpi-sub">${worstSup && worstSup!==bestSup ? worstSup.code+' · '+worstSup.name.split(' ')[0] : 'Sin datos'}</div>
+    </div>
+    <div class="kpi-card blue"><div class="kpi-label">Metas Cargadas</div>
+      <div class="kpi-value">${metasData.length}</div>
+      <div class="kpi-sub">Para ${month}</div>
+    </div>`;
+
+  // Table header
+  const thDays = days.map(d => {
+    const dn = parseInt(d.split('-')[2]);
+    const dow = new Date(d+'T12:00:00').toLocaleDateString('es-MX',{weekday:'short'}).slice(0,2);
+    return `<th>${dn}<br><span style="font-weight:400;color:var(--text3);font-size:0.58rem">${dow}</span></th>`;
+  }).join('');
+
+  const tbody = SUPERVISORS.map(sup => {
+    const cells = days.map(day => {
+      const meta = metaLkp[sup.code+'|'+day];
+      const real = realLkp[sup.code+'|'+day];
+
+      if (meta === undefined) {
+        // No meta loaded for this day
+        return `<td class="meta-nodata"><span style="color:var(--text3);font-size:0.65rem">—</span></td>`;
+      }
+      if (real === undefined) {
+        // Has meta but no capture yet
+        return `<td class="meta-pending">
+          <div class="meta-cell">
+            <span style="color:var(--text3);font-size:0.65rem">Sin cap.</span>
+            <span class="meta-target">Meta: ${meta}%</span>
+          </div></td>`;
+      }
+      // Has both
+      const hit = real >= meta;
+      const diff = (real - meta);
+      const cls = hit ? 'meta-hit' : 'meta-miss';
+      const col = hit ? '#10b981' : '#ef4444';
+      const sign = diff >= 0 ? '+' : '';
+      return `<td class="${cls}">
+        <div class="meta-cell">
+          <span class="meta-real" style="color:${col}">${real.toFixed(1)}%</span>
+          <span class="meta-target">Meta: ${meta}%</span>
+          <span style="font-size:0.58rem;color:${col};font-weight:700">${sign}${diff.toFixed(1)}%</span>
+        </div></td>`;
+    }).join('');
+
+    const sn = sup.name.split(' ').slice(0,2).join(' ');
+    return `<tr>
+      <td class="sup-name">${sup.code}<br><span style="font-size:0.68rem;color:var(--text2)">${sn}</span></td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  document.getElementById('metasTableWrap').innerHTML =
+    `<table class="metas-table">
+      <thead><tr><th class="sup-th">Supervisor</th>${thDays}</tr></thead>
+      <tbody>${tbody}</tbody>
+    </table>`;
+}
+
+// ── Plantilla Excel ───────────────────────────────────────────
+function descargarPlantilla() {
+  const wb = XLSX.utils.book_new();
+  const now = new Date();
+  const yr = now.getFullYear(), mo = now.getMonth()+1;
+  const dim = new Date(yr, mo, 0).getDate();
+  const days = Array.from({length:dim}, (_,i) =>
+    `${yr}-${String(mo).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`
+  );
+  const header = ['Código', 'Supervisor', ...days];
+  const rows = SUPERVISORS.map(s => [s.code, s.name, ...days.map(()=>36)]);
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = [{wch:8},{wch:35},...days.map(()=>({wch:13}))];
+  // Style header row
+  const hdr = ['A1','B1',...days.map((_,i)=>String.fromCharCode(67+i)+'1')];
+  hdr.forEach((c,i) => {
+    if(ws[c]) ws[c].s = {fill:{fgColor:{rgb:'0F2644'}},font:{bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center'}};
+  });
+  XLSX.utils.book_append_sheet(wb, ws, 'Metas');
+  const mo2 = String(mo).padStart(2,'0');
+  XLSX.writeFile(wb, `Plantilla_Metas_${yr}-${mo2}.xlsx`);
+  showToast('📥 Plantilla descargada');
+}
+
+// ── Process uploaded Excel ────────────────────────────────────
+function handleMetasDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').style.borderColor = 'var(--border)';
+  const file = e.dataTransfer.files[0];
+  if (file) procesarMetasExcel(file);
+}
+
+async function procesarMetasExcel(file) {
+  if (!file) return;
+  const status = document.getElementById('metasUploadStatus');
+  status.textContent = '⏳ Leyendo archivo...';
+  status.style.color = 'var(--text2)';
+
+  try {
+    const buf = await file.arrayBuffer();
+    const wb  = XLSX.read(buf, {type:'array'});
+    const ws  = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+
+    if (rows.length < 2) { status.textContent = '❌ El archivo está vacío.'; return; }
+
+    const header = rows[0]; // ['Código','Supervisor', 'YYYY-MM-DD', ...]
+    const dateColumns = []; // {colIndex, fecha}
+    for (let c=2; c<header.length; c++) {
+      const h = String(header[c]||'').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(h)) dateColumns.push({colIndex:c, fecha:h});
+    }
+    if (!dateColumns.length) {
+      status.textContent = '❌ No se encontraron columnas de fechas (formato YYYY-MM-DD).'; return;
+    }
+
+    // Build records to upsert
+    const records = [];
+    for (let r=1; r<rows.length; r++) {
+      const row = rows[r];
+      const codigo = String(row[0]||'').trim();
+      if (!codigo.startsWith('C1-')) continue;
+      const sup = SUPERVISORS.find(s=>s.code===codigo);
+      if (!sup) continue;
+      dateColumns.forEach(({colIndex, fecha}) => {
+        const val = row[colIndex];
+        if (val !== null && val !== undefined && val !== '') {
+          const meta = parseFloat(val);
+          if (!isNaN(meta)) records.push({codigo_supervisor:codigo, nombre_supervisor:sup.name, fecha, meta_pct:Math.round(meta*100)/100});
+        }
+      });
+    }
+
+    if (!records.length) { status.textContent = '❌ No se encontraron datos válidos.'; return; }
+
+    status.textContent = `⏳ Subiendo ${records.length} metas a Supabase...`;
+
+    // Delete existing for the same month(s) then insert
+    const months = [...new Set(records.map(r=>r.fecha.slice(0,7)))];
+    for (const m of months) {
+      const [my,mm]=m.split('-').map(Number);
+      const lastDay=new Date(my,mm,0).getDate();
+      const lastDate=`${m}-${String(lastDay).padStart(2,'0')}`;
+      await supaFetch(`pcp_metas?fecha=gte.${m}-01&fecha=lte.${lastDate}`, {method:'DELETE', headers:{'Prefer':''}});
+    }
+
+    // Insert in batches of 50
+    const batchSize = 50;
+    for (let i=0; i<records.length; i+=batchSize) {
+      const batch = records.slice(i, i+batchSize);
+      await supaFetch('pcp_metas', {method:'POST', body:JSON.stringify(batch), headers:{'Prefer':'return=minimal'}});
+    }
+
+    status.style.color = 'var(--green)';
+    status.textContent = `✅ ${records.length} metas cargadas correctamente para ${months.join(', ')}`;
+    showToast('🎯 Metas cargadas exitosamente');
+
+    // Refresh metas if that tab was open
+    if (document.getElementById('page-metas').classList.contains('active')) renderMetas();
+
+  } catch(e) {
+    status.style.color = 'var(--red)';
+    status.textContent = '❌ Error: ' + e.message;
+  }
+}
+
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+</script>
+</body>
+</html>
