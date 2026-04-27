@@ -156,6 +156,27 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .meta-pending{background:rgba(59,130,246,0.08);}
 .meta-nodata{}
 
+
+.sup-section{margin-bottom:1.5rem;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.sup-section-header{background:var(--surface2);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;}
+.sup-section-header:hover{background:rgba(59,130,246,0.08);}
+.sup-section-title{font-size:0.88rem;font-weight:600;color:var(--text);}
+.sup-section-stats{display:flex;gap:16px;font-size:0.75rem;color:var(--text2);}
+.sup-section-stats span{display:flex;align-items:center;gap:4px;}
+.sup-section-body{display:block;}
+.sup-section-body.collapsed{display:none;}
+.day-podium{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;}
+.podium-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1rem;}
+.podium-title{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;}
+.podium-title.top{color:var(--green);}
+.podium-title.bot{color:var(--red);}
+.podium-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem;}
+.podium-row:last-child{border-bottom:none;}
+.podium-name{color:var(--text);font-weight:500;}
+.podium-code{color:var(--text2);font-size:0.7rem;}
+.month-top-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;}
+@media(max-width:768px){.day-podium,.month-top-grid{grid-template-columns:1fr;}}
+
 .success-toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(100px);background:var(--green);color:white;padding:14px 28px;border-radius:12px;font-weight:600;font-size:0.9rem;transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);z-index:999;box-shadow:0 8px 32px rgba(16,185,129,0.4);}
 .success-toast.show{transform:translateX(-50%) translateY(0);}
 @media(max-width:768px){.chart-grid{grid-template-columns:1fr;}.main{padding:1rem;}.kpi-grid{grid-template-columns:1fr 1fr;}.form-row{grid-template-columns:1fr;}.admin-filters{grid-template-columns:1fr;}.admin-stats{grid-template-columns:1fr 1fr;}}
@@ -299,20 +320,37 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <!-- DATOS -->
 <div class="page" id="page-datos">
-  <div class="export-bar">
+
+  <div class="export-bar" style="margin-bottom:1.5rem">
     <span class="export-label">⬇️ Descargar:</span>
     <button class="btn-export btn-export-detail" onclick="exportExcelDetalle()">📋 Excel Detalle</button>
     <button class="btn-export btn-export-summary" onclick="exportExcelResumen()">📊 Excel Resumen</button>
   </div>
-  <div class="chart-card">
-    <div class="chart-title">Concentrado General</div>
-    <div class="data-table-wrap">
-      <table class="data-table">
-        <thead><tr><th>Código</th><th>Supervisor</th><th>Fecha</th><th>Venta Total</th><th>Venta PCP</th><th>% PCP</th><th>Nivel</th></tr></thead>
-        <tbody id="allDataBody"></tbody>
-      </table>
+  <!-- ANÁLISIS POR DÍA -->
+  <div class="chart-card" style="margin-bottom:1rem">
+    <div class="chart-title" style="margin-bottom:1rem"><span>📅 Análisis por Día — Elige una fecha</span></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap;">
+      <input type="date" id="datosDatePicker" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:9px 14px;border-radius:8px;font-size:0.88rem;font-family:'DM Sans',sans-serif;" onchange="renderDayAnalysis()">
+      <span style="font-size:0.8rem;color:var(--text2)">← Elige cualquier día del mes</span>
     </div>
+    <div id="dayAnalysisWrap"><div style="color:var(--text3);font-size:0.85rem;padding:1rem">Selecciona una fecha para ver el análisis del día.</div></div>
   </div>
+
+  <!-- ANÁLISIS DEL MES -->
+  <div class="chart-card" style="margin-bottom:1rem">
+    <div class="chart-title" style="margin-bottom:1rem">
+      <span>📊 Mejores y Peores del Mes</span>
+      <select id="datosMonthSelect" onchange="renderMonthAnalysis()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:0.78rem;font-family:'DM Sans',sans-serif;"></select>
+    </div>
+    <div id="monthAnalysisWrap"></div>
+  </div>
+
+  <!-- DATOS POR SUPERVISOR -->
+  <div class="chart-card">
+    <div class="chart-title" style="margin-bottom:1.25rem"><span>🗃️ Registros por Supervisor</span></div>
+    <div id="supDataSections"></div>
+  </div>
+
 </div>
 
 <!-- ADMIN -->
@@ -504,7 +542,7 @@ function populateMonthSelects(){
     const lbl=d.toLocaleDateString('es-MX',{month:'long',year:'numeric'});
     return `<option value="${val}"${i===0?' selected':''}>${lbl.charAt(0).toUpperCase()+lbl.slice(1)}</option>`;
   }).join('');
-  ['hmMonthSelect','genMonthFilter'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+  ['hmMonthSelect','genMonthFilter','datosMonthSelect'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
   initMetasMonthSelect();
   const am=document.getElementById('adminMonthFilter');
   if(am)am.value=now.toISOString().slice(0,7);
@@ -560,7 +598,12 @@ function showPage(id,tabEl){
   if(id==='dashboard')renderDashboard();
   if(id==='heatmap')renderHeatmap();
   if(id==='general')renderGeneral();
-  if(id==='datos')renderAllData();
+  if(id==='datos'){
+    // Set today as default date
+    if(!document.getElementById('datosDatePicker').value)
+      document.getElementById('datosDatePicker').value=todayStr();
+    renderAllData();
+  }
   if(id==='admin')renderAdminPage();
   if(id==='metas')renderMetas();
 }
@@ -831,14 +874,194 @@ function renderHeatmap(){
 }
 
 function renderAllData(){
-  const tbody=document.getElementById('allDataBody');
-  if(!allData.length){tbody.innerHTML='<tr class="no-data-row"><td colspan="7">No hay registros aún.</td></tr>';return;}
-  tbody.innerHTML=allData.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(r=>{
-    const p=getPct(r);
-    return`<tr><td>${r.codigo_supervisor}</td><td style="font-family:'DM Sans',sans-serif;font-size:0.8rem">${r.nombre_supervisor}</td>
-    <td>${r.fecha}</td><td>${fmtM(r.venta_total||0)}</td><td>${fmtM(r.venta_pcp)}</td>
-    <td><b>${fmtP(p)}</b></td><td><span class="badge ${bCls(p)}">${lvl(p)}</span></td></tr>`;
+  renderSupSections();
+  renderDayAnalysis();
+  renderMonthAnalysis();
+}
+
+function renderSupSections(){
+  const wrap = document.getElementById('supDataSections');
+  if(!wrap) return;
+  if(!allData.length){ wrap.innerHTML='<div style="color:var(--text3);padding:2rem;text-align:center">No hay registros aún.</div>'; return; }
+
+  wrap.innerHTML = SUPERVISORS.map(sup => {
+    const recs = allData.filter(r=>r.codigo_supervisor===sup.code)
+                        .sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    if(!recs.length) return '';
+
+    const avgVT   = recs.reduce((s,r)=>s+(r.venta_total||0),0)/recs.length;
+    const avgVPCP = recs.reduce((s,r)=>s+r.venta_pcp,0)/recs.length;
+    const avgP    = recs.reduce((s,r)=>s+getPct(r),0)/recs.length;
+
+    const rows = recs.map(r=>{
+      const p=getPct(r);
+      return `<tr>
+        <td>${r.fecha}</td>
+        <td style="font-family:'DM Mono',monospace">${fmtM(r.venta_total||0)}</td>
+        <td style="font-family:'DM Mono',monospace">${fmtM(r.venta_pcp)}</td>
+        <td><span class="badge ${bCls(p)}">${fmtP(p)}</span></td>
+      </tr>`;
+    }).join('');
+
+    return `<div style="margin-bottom:1.5rem;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+      <div style="background:var(--surface2);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span style="font-weight:700;font-size:0.9rem">${sup.code}</span>
+          <span style="color:var(--text2);font-size:0.85rem;margin-left:10px">${sup.name}</span>
+        </div>
+        <div style="display:flex;gap:16px;font-size:0.75rem;color:var(--text2)">
+          <span>Registros: <b style="color:var(--text)">${recs.length}</b></span>
+          <span>Prom VT: <b style="color:var(--text)">${fmtM(avgVT)}</b></span>
+          <span>Prom PCP: <b style="color:var(--text)">${fmtM(avgVPCP)}</b></span>
+          <span>Prom %: <b style="color:${barColor(avgP)}">${fmtP(avgP)}</b></span>
+        </div>
+      </div>
+      <table class="data-table" style="margin:0">
+        <thead><tr>
+          <th>Fecha</th><th>Venta Total</th><th>Venta PCP</th><th>% PCP</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
   }).join('');
+}
+
+function renderDayAnalysis(){
+  const date = document.getElementById('datosDatePicker').value;
+  const wrap = document.getElementById('dayAnalysisWrap');
+  if(!date || !wrap) return;
+
+  const recs = allData.filter(r=>r.fecha===date)
+                      .map(r=>({...r,p:getPct(r)}))
+                      .sort((a,b)=>b.p-a.p);
+
+  if(!recs.length){
+    wrap.innerHTML=`<div style="color:var(--text3);font-size:0.85rem;padding:1rem;text-align:center">Sin registros para el ${date.split('-').reverse().join('/')}</div>`;
+    return;
+  }
+
+  const medals=['🥇','🥈','🥉'];
+  const top3    = recs.slice(0,3);
+  const bottom3 = recs.slice(-3).reverse();
+  const maxP    = recs[0].p;
+
+  const podiumHtml = (list, label, colorCls) => `
+    <div style="flex:1;min-width:200px">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text2);margin-bottom:10px">${label}</div>
+      ${list.map((r,i)=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:8px;margin-bottom:6px;border:1px solid var(--border)">
+          <span style="font-size:1.1rem">${label.includes('Alto')?medals[i]:'⚠️'}</span>
+          <div style="flex:1">
+            <div style="font-size:0.8rem;font-weight:600">${r.nombre_supervisor.split(' ').slice(0,2).join(' ')}</div>
+            <div style="font-size:0.7rem;color:var(--text2)">${r.codigo_supervisor}</div>
+          </div>
+          <span class="badge ${bCls(r.p)}">${fmtP(r.p)}</span>
+        </div>`).join('')}
+    </div>`;
+
+  const tableRows = recs.map((r,i)=>{
+    const bw = Math.round((r.p/maxP)*100);
+    return `<tr>
+      <td style="text-align:center">${i<3?medals[i]:`<span style="color:var(--text2)">${i+1}</span>`}</td>
+      <td><div style="font-weight:600;font-size:0.82rem">${r.nombre_supervisor.split(' ').slice(0,2).join(' ')}</div>
+          <div style="font-size:0.7rem;color:var(--text2)">${r.codigo_supervisor}</div></td>
+      <td style="font-family:'DM Mono',monospace">${fmtM(r.venta_total||0)}</td>
+      <td style="font-family:'DM Mono',monospace">${fmtM(r.venta_pcp)}</td>
+      <td><span class="badge ${bCls(r.p)}">${fmtP(r.p)}</span>
+          <div class="pct-bar-wrap"><div class="pct-bar" style="width:${bw}%;background:${barColor(r.p)}"></div></div></td>
+    </tr>`;
+  }).join('');
+
+  const dateLabel = new Date(date+'T12:00:00').toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  wrap.innerHTML = `
+    <div style="font-size:0.8rem;color:var(--text2);margin-bottom:1rem">
+      📅 <b style="color:var(--text)">${dateLabel}</b> — ${recs.length} supervisores con captura
+    </div>
+    <div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+      ${podiumHtml(top3,'🏆 Más Altos','')}
+      ${podiumHtml(bottom3,'⚠️ Más Bajos','')}
+    </div>
+    <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text2);margin-bottom:8px">Ranking Completo del Día</div>
+    <div class="data-table-wrap">
+      <table class="rank-table">
+        <thead><tr><th>#</th><th>Supervisor</th><th>Venta Total</th><th>Venta PCP</th><th>% PCP</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderMonthAnalysis(){
+  const month = document.getElementById('datosMonthSelect').value;
+  const wrap  = document.getElementById('monthAnalysisWrap');
+  if(!month||!wrap) return;
+
+  const recs = allData.filter(r=>r.fecha.startsWith(month));
+  if(!recs.length){
+    wrap.innerHTML='<div style="color:var(--text3);padding:1rem;text-align:center">Sin registros para este mes.</div>';
+    return;
+  }
+
+  // Average per supervisor for the month
+  const supAvgs = SUPERVISORS.map(sup=>{
+    const sr=recs.filter(r=>r.codigo_supervisor===sup.code);
+    if(!sr.length) return null;
+    const avgP=sr.reduce((s,r)=>s+getPct(r),0)/sr.length;
+    const totVT=sr.reduce((s,r)=>s+(r.venta_total||0),0);
+    const totVPCP=sr.reduce((s,r)=>s+r.venta_pcp,0);
+    return{sup,avgP,totVT,totVPCP,dias:sr.length};
+  }).filter(Boolean).sort((a,b)=>b.avgP-a.avgP);
+
+  if(!supAvgs.length){ wrap.innerHTML='<div style="color:var(--text3);padding:1rem;text-align:center">Sin datos.</div>'; return; }
+
+  const medals=['🥇','🥈','🥉'];
+  const top3    = supAvgs.slice(0,3);
+  const bottom3 = supAvgs.slice(-3).reverse();
+  const maxP    = supAvgs[0].avgP;
+
+  const podCard = (list, label) => `
+    <div style="flex:1;min-width:220px">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text2);margin-bottom:10px">${label}</div>
+      ${list.map((s,i)=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;margin-bottom:6px;border:1px solid var(--border)">
+          <span style="font-size:1.2rem">${label.includes('Alto')?medals[i]:'⚠️'}</span>
+          <div style="flex:1">
+            <div style="font-size:0.82rem;font-weight:600">${s.sup.name.split(' ').slice(0,2).join(' ')}</div>
+            <div style="font-size:0.7rem;color:var(--text2)">${s.sup.code} · ${s.dias} días</div>
+          </div>
+          <div style="text-align:right">
+            <div><span class="badge ${bCls(s.avgP)}">${fmtP(s.avgP)}</span></div>
+            <div style="font-size:0.68rem;color:var(--text2);margin-top:3px">prom. mes</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  const allRows = supAvgs.map((s,i)=>{
+    const bw=Math.round((s.avgP/maxP)*100);
+    return`<tr>
+      <td style="text-align:center">${i<3?medals[i]:`<span style="color:var(--text2)">${i+1}</span>`}</td>
+      <td><div style="font-weight:600;font-size:0.82rem">${s.sup.name.split(' ').slice(0,2).join(' ')}</div>
+          <div style="font-size:0.7rem;color:var(--text2)">${s.sup.code}</div></td>
+      <td style="font-family:'DM Mono',monospace">${fmtM(s.totVT)}</td>
+      <td style="font-family:'DM Mono',monospace">${fmtM(s.totVPCP)}</td>
+      <td style="text-align:center"><b>${s.dias}</b></td>
+      <td><span class="badge ${bCls(s.avgP)}">${fmtP(s.avgP)}</span>
+          <div class="pct-bar-wrap"><div class="pct-bar" style="width:${bw}%;background:${barColor(s.avgP)}"></div></div></td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML=`
+    <div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+      ${podCard(top3,'🏆 Más Altos del Mes')}
+      ${podCard(bottom3,'⚠️ Más Bajos del Mes')}
+    </div>
+    <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text2);margin-bottom:8px">Ranking Completo del Mes</div>
+    <div class="data-table-wrap">
+      <table class="rank-table">
+        <thead><tr><th>#</th><th>Supervisor</th><th>Venta Total</th><th>Venta PCP</th><th>Días</th><th>% PCP Prom.</th></tr></thead>
+        <tbody>${allRows}</tbody>
+      </table>
+    </div>`;
 }
 
 function exportExcelDetalle(){
