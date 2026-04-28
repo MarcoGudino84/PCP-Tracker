@@ -523,6 +523,7 @@ const fmtP=v=>v.toFixed(1)+'%';
 const fmtM=v=>'$'+Math.round(v).toLocaleString('es-MX');
 const bCls=p=>p>=36?'badge-green':p>=30?'badge-yellow':'badge-red';
 const lvl=p=>p>=36?'ALTO':p>=30?'MEDIO':'BAJO';
+const barColor=p=>p>=36?"#10b981":p>=30?"#f59e0b":"#ef4444";
 const bColor=p=>p>=36?'#10b981':p>=30?'#f59e0b':'#ef4444';
 const getPct=r=>r.venta_total&&r.venta_total>0?calcP(r.venta_pcp,r.venta_total):(r.pct_pcp||0);
 
@@ -732,7 +733,7 @@ function renderRankingChart(){
   chartRanking=new Chart(document.getElementById('chartRanking').getContext('2d'),{
     type:'bar',
     data:{labels:recs.map(r=>r.codigo_supervisor),
-      datasets:[{data:recs.map(r=>r.p),backgroundColor:recs.map(r=>bColor(r.p)),borderRadius:6,borderWidth:0}]},
+      datasets:[{data:recs.map(r=>r.p),backgroundColor:recs.map(r=>barColor(r.p)),borderRadius:6,borderWidth:0}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{ticks:{color:'#8899b4',font:{size:10},callback:v=>v+'%'},grid:{color:'#1f2d45'},min:0,max:100},
         y:{ticks:{color:'#8899b4',font:{size:10}},grid:{display:false}}}}
@@ -790,7 +791,7 @@ function renderRankingTable(){
       <td><div style="font-weight:600;font-size:0.85rem">${sup.name.split(' ').slice(0,2).join(' ')}</div><div style="font-size:0.72rem;color:var(--text2)">${sup.code}</div></td>
       <td style="font-family:'DM Mono',monospace">${rec?fmtM(rec.venta_total||0):'<span style="color:var(--text3)">Sin captura</span>'}</td>
       <td style="font-family:'DM Mono',monospace">${rec?fmtM(rec.venta_pcp):'—'}</td>
-      <td>${p!==null?`<span class="badge ${bCls(p)}">${fmtP(p)}</span><div class="pct-bar-wrap"><div class="pct-bar" style="width:${bw}%;background:${bColor(p)}"></div></div>`:'<span style="color:var(--text3);font-size:0.75rem">Sin datos</span>'}</td>
+      <td>${p!==null?`<span class="badge ${bCls(p)}">${fmtP(p)}</span><div class="pct-bar-wrap"><div class="pct-bar" style="width:${bw}%;background:${(p>=36?"#10b981":p>=30?"#f59e0b":"#ef4444")}"></div></div>`:'<span style="color:var(--text3);font-size:0.75rem">Sin datos</span>'}</td>
       <td style="text-align:center">${tHtml}</td>
     </tr>`;
   }).join('');
@@ -913,7 +914,7 @@ function renderSupSections(){
           <span>Registros: <b style="color:var(--text)">${recs.length}</b></span>
           <span>Prom VT: <b style="color:var(--text)">${fmtM(avgVT)}</b></span>
           <span>Prom PCP: <b style="color:var(--text)">${fmtM(avgVPCP)}</b></span>
-          <span>Prom %: <b style="color:${barColor(avgP)}">${fmtP(avgP)}</b></span>
+          <span>Prom %: <b style="color:${avgP>=36?"#10b981":avgP>=30?"#f59e0b":"#ef4444"}">${fmtP(avgP)}</b></span>
         </div>
       </div>
       <table class="data-table" style="margin:0">
